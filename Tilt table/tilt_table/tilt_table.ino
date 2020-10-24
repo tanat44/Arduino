@@ -1,17 +1,25 @@
 #include <Timer.h>
 #include <Servo.h>
 
-#define MIN_PITCH   62   // reversing these values will reverse the servo direction
+// tunable parameters
+#define MIN_PITCH   62        // reversing these values will reverse the servo direction
 #define MAX_PITCH   76
-#define SERVO_STEP  100    
-#define SLOW_STEP   5    // servo will slow at begin and end of motion,  this value should be below SERVO_STEP / 2
-#define SLOW_SPEED  20    // increase this value to reduce the speed
-#define NORMAL_SPEED  35
+#define SERVO_STEP  100 
 
-#define UP_BTN 2
-#define DOWN_BTN 3
+#define UP_START_STEP   50      
+#define UP_SPEED        35
+#define UP_END_STEP     5
+#define UP_END_SPEED    20
+#define DOWN_SPEED      80        // increase this value to reduce the speed
+
+#define MAX_LIFT_DURATION 300  // in seconds
+
+// program flow control
 #define TEST_MODE false
 
+// hardware pin
+#define UP_BTN 2
+#define DOWN_BTN 3
  
 Timer t;
 Servo feedServo;
@@ -19,15 +27,17 @@ Servo pitchServo;
 Servo esc;
 
 enum Direction { up, down };
-const int analogInPinY = A0;  // Analog input pin that the potentiometer is attached to
-const int analogInPinX = A1; 
-const int switchPin = 13;
+
 int pitch = 0;
 Direction testDirection = Direction::up;
 
 // for slow in and out movement
 int delayedServoOut = -1;
 int slowEvent;
+
+int stopSecond = 0;
+int stopSecondEvent = -1;
+bool returningHome = false;
 
 void writeSlowServo(){
   if (delayedServoOut == -1){
@@ -41,6 +51,25 @@ void writeSlowServo(){
   delayedServoOut = -1;
   t.stop(slowEvent);
 }
+
+void resetStopSecondEvent() {
+    t.stop(stopSecondEvent);
+    stopSecondEvent = -1;
+    stopSecond = 0;
+}
+
+void tickStopSecond() {
+  if (stopSecond > MAX_LIFT_DURATION){
+    returningHome = true;
+    resetStopSecondEvent();
+  } else {
+    ++stopSecond;
+    Serial.print("Return home timer elapsed for ");
+    Serial.print(stopSecond, DEC);
+    Serial.println("s");
+  }
+}
+
 
 // setPitch receive value 0 to SERVO_RESOLUTION
 void setPitch(Direction d){
@@ -58,34 +87,53 @@ void setPitch(Direction d){
       }
       return;
     } 
-    ++pitch;
+
+    if (pitch < UP_START_STEP){
+      pitch += 15;
+    } else {
+      ++pitch;
+    }
   } else if (d == Direction::down){
     if (pitch <= 0) {
       pitch = 0;
       if (TEST_MODE){
         testDirection = Direction::up;
       }
+      if (returningHome) {
+        returningHome = false;
+        
+      }
       return;
     } 
     --pitch;
   } else {
     Serial.println("ERROR setPitch with undefined direction");
+    return;
   }
 
+  if (stopSecondEvent != -1){
+    resetStopSecondEvent();
+  }
+  stopSecondEvent = t.every(1000, tickStopSecond);
+  
   // remapping pitch to defined range of motion
   int o = map(pitch, 0, SERVO_STEP, MIN_PITCH, MAX_PITCH);
+  Serial.print("Pitch = ");
   Serial.print(pitch, DEC);
-  Serial.print(" ");  
+  Serial.print(" Servo = ");  
   Serial.print(o, DEC);
   Serial.println("");
 
   delayedServoOut = o;
-  if (pitch < SLOW_STEP || pitch > SERVO_STEP - SLOW_STEP ) {
-    // write servo in slow speed during SLOW_STEP
-    slowEvent = t.after(SLOW_SPEED, writeSlowServo);
+  if (d == Direction::up){
+    if (pitch < SERVO_STEP - UP_END_STEP) {
+      slowEvent = t.after(UP_SPEED, writeSlowServo);
+    } else if (pitch >= SERVO_STEP - UP_END_STEP) {
+      slowEvent = t.after(UP_END_SPEED, writeSlowServo);
+    }
   } else {
-    // write servo in normal speed
-    slowEvent = t.after(NORMAL_SPEED, writeSlowServo);
+    // coming down
+    slowEvent = t.after(DOWN_SPEED, writeSlowServo);
   }
   
 }
@@ -107,6 +155,12 @@ void loop() {
     setPitch(testDirection);
     return;
   }
+
+  if (returningHome) {
+    Serial.println("Returning home");
+    setPitch(Direction::down);
+    return;
+  }
   
   if (!digitalRead(UP_BTN))
   {
@@ -119,12 +173,3 @@ void loop() {
     setPitch(Direction::down);
   } 
 }
-
-
-// DIGITAL READ
-//  int analogX = analogRead(analogInPinX); //left = high, right = row
-//  int analogY = analogRead(analogInPinY);
-//  Serial.print("X = ");
-//  Serial.print(analogX);
-//  Serial.print(" ,Y = ");
-//  Serial.println(analogY);
