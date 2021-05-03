@@ -1,0 +1,45 @@
+<script>
+    const robotAddress = 'http://192.168.1.45'
+    let lock = false;
+    const walkDistance = 200;
+    const turnDistance = 100;
+
+    document.onkeypress = function (e) {
+        e = e || window.event;
+        const keycode = e.keyCode;
+        console.log(keycode)
+
+        // W
+        if (keycode === 119) {
+            post(robotAddress, {command: `dp${walkDistance}\n`});
+        // A
+        } else if (keycode === 97) {
+            post(robotAddress, {command: "sp-45\n"});
+        // S
+        } else if (keycode === 115) {
+            post(robotAddress, {command: `dp-${walkDistance}\n`});
+        // D
+        } else if (keycode === 100) {   
+            post(robotAddress, {command: "sp45\n"});
+        // Z
+        } else if (keycode === 122) {   
+            post(robotAddress, {command: `ds-${turnDistance}\n`});
+        // X
+        } else if (keycode === 120) {   
+            post(robotAddress, {command: `ds+${turnDistance}\n`});
+        }
+
+    };
+
+    window.post = function(url, data) {
+        lock = true;
+        return fetch(url, {method: "POST", body: JSON.stringify(data)})
+                .then(res => {
+                    if (res.ok) {
+                        lock = false;
+                    }
+                })
+    }
+
+
+</script>

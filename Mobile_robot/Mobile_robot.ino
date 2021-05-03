@@ -3,7 +3,7 @@
 #include "DriveServo.h"
 #include "DriveSteerModule.h"
 #include "Robot.h"
-
+#include <SoftwareSerial.h>
 
 Servo servo1, servo2, servo3, servo4, servo5, servo6;
 SteerServo s1, s2, s3;
@@ -12,6 +12,8 @@ DriveSteerModule m1, m2, m3;
 Robot robot;
 int angle[] = {0,0,0};
 int speed[] = {0,0,0};
+
+SoftwareSerial mySerial(8, 9); // RX, TX
 
 
 void setupTimer0() {
@@ -48,8 +50,9 @@ void handleFrame() {
 }
 
 void setup() {
+  // Serial
   Serial.begin(9600);
-  while (!Serial);
+  mySerial.begin(38400);
 
   s1 = SteerServo(&servo1, 2, 116);
   s2 = SteerServo(&servo2, 4, 83);
@@ -81,14 +84,58 @@ void printState() {
   Serial.println(speed[2], DEC);
 }
 
+int parseStringToInt(String s) {
+  if (s.length() == 0) {
+    return 0;
+  }
+  if (s[0] == 'n' || s[0] == '-'){
+    return -s.substring(1).toInt();
+  } else {
+    return s.toInt();
+  }
+  
+}
 
-void loop() {
-  while (Serial.available() > 0) {
-    String terminalText = Serial.readStringUntil('\n');
-    int len = terminalText.length();
+void serialHandle(String terminalText) {
+  int len = terminalText.length();
+  
+    // STEER PARALLEL
+    if (terminalText.substring(0,2) == "sp") {
+      int angle = parseStringToInt(terminalText.substring(2));
+      robot.steerParallel(angle);
+
+    // STEER SPIN
+    } else if (terminalText.substring(0,2) == "ss") {
+      robot.steerSpin();
+
+    // DRIVE PARALLEL
+    } else if (terminalText.substring(0,2) == "dp") {
+      int distance = 10;
+      int direction = 1;
+      if(len > 2) {
+        distance = terminalText.substring(2).toInt();
+        if (distance < 0){
+          distance = abs(distance);
+          direction = -1;
+        }
+      }
+      robot.driveParallel(distance, 40*direction);
+
+    // DRIVE SPIN
+    } else if (terminalText.substring(0,2) == "ds") {
+      int distance = 10;
+      int direction = 1;
+      if(len > 2) {
+        distance = terminalText.substring(2).toInt();
+        if (distance < 0){
+          distance = abs(distance);
+          direction = -1;
+        }
+      }
+      robot.driveSpin(distance, 40*direction);
 
     // STEERING COMMAND
-    if (terminalText[0] == 'a'){
+    } else if (terminalText[0] == 'a'){
       int number = terminalText.substring(2).toInt();
       // CRAB WALK
       if (terminalText[1] == 'a') {
@@ -126,40 +173,6 @@ void loop() {
       speed[2] = terminalText.substring(indexes[4] + 1).toInt();
 
       
-    // STEER PARALLEL
-    } else if (terminalText.substring(0,2) == "sp") {
-      int angle = terminalText.substring(2).toInt();
-      robot.steerParallel(angle);
-
-    // STEER PARALLEL
-    } else if (terminalText.substring(0,2) == "ss") {
-      robot.steerSpin();
-
-    // DRIVE PARALLEL
-    } else if (terminalText.substring(0,2) == "dp") {
-      int distance = 10;
-      int direction = 1;
-      if(len > 2) {
-        distance = terminalText.substring(2).toInt();
-        if (distance < 0){
-          distance = abs(distance);
-          direction = -1;
-        }
-      }
-      robot.driveParallel(distance, 40*direction);
-
-    // DRIVE SPIN
-    } else if (terminalText.substring(0,2) == "ds") {
-      int distance = 10;
-      int direction = 1;
-      if(len > 2) {
-        distance = terminalText.substring(2).toInt();
-        if (distance < 0){
-          distance = abs(distance);
-          direction = -1;
-        }
-      }
-      robot.driveSpin(distance, 40*direction);
 
     // DRIVE
     } else if (terminalText[0] == 'd') {
@@ -175,6 +188,10 @@ void loop() {
       m1.drive(distance, 40*direction);
       m2.drive(distance, 40*direction);
       m3.drive(distance, 40*direction);
+
+    // TEST
+    } else if (terminalText[0] == 't') {
+      
 
       
     // STEER
@@ -207,7 +224,19 @@ void loop() {
       speed[1] = 0;
       speed[2] = 0;
     }
-      
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    String terminalText = Serial.readStringUntil('\n');
+    serialHandle(terminalText);
+  }
+
+  if (mySerial.available() > 0) {
+    String terminalText = mySerial.readStringUntil('\n');
+    Serial.print("INCOMING ");
+    Serial.println(terminalText);
+    serialHandle(terminalText);
   }
 
 }

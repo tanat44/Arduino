@@ -12,6 +12,7 @@ public:
   void steer(int angle, int steerSpeed);
   void drive(int distance, float speed);
   void update();
+  bool isReady();
 
 
 private:
@@ -22,6 +23,7 @@ private:
   int targetAngle;
   float steerSpeed;
   int remainingFrame;
+  bool ready;
 };
 
 

@@ -4,7 +4,7 @@
 
 DriveSteerModule::DriveSteerModule(){}
 
-DriveSteerModule::DriveSteerModule(DriveServo* driveServo, SteerServo* steerServo): driveServo(driveServo), steerServo(steerServo), currentAngle(0){
+DriveSteerModule::DriveSteerModule(DriveServo* driveServo, SteerServo* steerServo): driveServo(driveServo), steerServo(steerServo), currentAngle(0), ready(true){
   
 }
 
@@ -14,10 +14,10 @@ void DriveSteerModule::drive(int distance, float speed){
 
 void DriveSteerModule::steer(int angle, int speed){
   
-  if (angle < -45) {
-    angle = -45;
-  } else if (angle > 45) {
-    angle = 45;
+  if (angle < -60) {
+    angle = -60;
+  } else if (angle > 60) {
+    angle = 60;
   }
 
   int direction = angle > steerServo->readPosition() ? 1 : -1;
@@ -27,6 +27,7 @@ void DriveSteerModule::steer(int angle, int speed){
   remainingFrame = float(abs(angle - steerServo->readPosition())) / abs(steerSpeed);
 
   if (remainingFrame > 0) {
+    ready = false;
     int driveDistance = float(abs(angle - steerServo->readPosition())) * STEER_ANGLE_TO_DRIVE_DISTANCE;
     float driveSpeed = driveServo->calculateSpeed(driveDistance, remainingFrame);
     int servoReverse = driveServo->isReverse() ? -1 : 1;
@@ -44,5 +45,11 @@ void DriveSteerModule::update(){
     --remainingFrame;
   } else {
     steerServo->setPosition(targetAngle);
+    ready = true;
   }
+}
+
+
+bool DriveSteerModule::isReady(){
+  return ready;
 }
