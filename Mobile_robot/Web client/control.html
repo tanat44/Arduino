@@ -1,6 +1,5 @@
 <script>
     const robotAddress = 'http://192.168.1.45'
-    let lock = false;
     const walkDistance = 200;
     const turnDistance = 100;
 
@@ -32,7 +31,6 @@
     };
 
     window.post = function(url, data) {
-        lock = true;
         return fetch(url, {method: "POST", body: JSON.stringify(data)})
                 .then(res => {
                     if (res.ok) {
