@@ -1,8 +1,9 @@
 #include <ESP8266WiFi.h>
 //#define PRINT_ENCODER_POSITION
 
-#define KP 2.0
-#define KD 5.0
+// TESTED ON 12v 775 MOTOR
+#define KP 6.0
+#define KD 11.0
 
 uint8_t ENCODER1_PIN = D2;
 uint8_t ENCODER2_PIN = D1;
